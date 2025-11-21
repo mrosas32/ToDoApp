@@ -2,37 +2,49 @@ import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import Tareas from './pages/Tareas';
-import "./global.css";
+import Login from './pages/Login';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
+import './global.css';
 import '@ionic/react/css/core.css';
-
 import '@ionic/react/css/normalize.css';
-import '@ionic/react/css/structure.css';
-import '@ionic/react/css/typography.css';
-
-import '@ionic/react/css/padding.css';
-import '@ionic/react/css/float-elements.css';
-import '@ionic/react/css/text-alignment.css';
-import '@ionic/react/css/text-transformation.css';
-import '@ionic/react/css/flex-utils.css';
-import '@ionic/react/css/display.css';
-
-import '@ionic/react/css/palettes/dark.system.css';
-
 import './theme/variables.css';
 
 setupIonicReact();
 
-const App: React.FC = () => (
-    <IonApp>
-        <IonReactRouter>
-            <IonRouterOutlet>
-                <Route exact path="/tareas" component={Tareas} />
+const ProtectedRoute: React.FC<any> = ({ component: Component, ...rest }) => {
+  const { isLoggedIn } = useAuth();
+  
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        isLoggedIn ? (
+          <Component {...props} />
+        ) : (
+          <Redirect to="/login" />
+        )
+      }
+    />
+  );
+};
 
-                <Redirect exact from="/" to="/tareas" />
-            </IonRouterOutlet>
-        </IonReactRouter>
-    </IonApp>
+const MainApp: React.FC = () => (
+  <IonApp>
+    <IonReactRouter>
+      <IonRouterOutlet>
+        <Route exact path="/login" component={Login} />
+        <ProtectedRoute exact path="/tareas" component={Tareas} />
+        <Redirect exact from="/" to="/login" />
+      </IonRouterOutlet>
+    </IonReactRouter>
+  </IonApp>
+);
+
+const App: React.FC = () => (
+  <AuthProvider>
+    <MainApp />
+  </AuthProvider>
 );
 
 export default App;
