@@ -1,83 +1,59 @@
-import { Preferences } from '@capacitor/preferences';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
+  query,
+  orderBy,
+  serverTimestamp,
+  DocumentData,
+} from "firebase/firestore";
 
-const API_URL = 'https://jsonplaceholder.typicode.com/todos'; 
+import { db } from "../firebase";
 
-interface ApiTarea {
-  id?: number;
-  titulo: string;
-  descripcion: string;
-  imagenUrl?: string;
-  ubicacion?: any;
+export interface Tarea {
+  id: string;
+  title: string;
+  done: boolean;
 }
 
-export const apiService = {
-  getTareas: async (username: string): Promise<ApiTarea[]> => {
-    let tareasNubeGenericas: ApiTarea[] = [];
-    const USER_DB_KEY = `server_db_${username}`;
+export const getTasks = async (uid: string): Promise<Tarea[]> => {
+  const tasksRef = collection(db, "users", uid, "tasks");
+  const q = query(tasksRef, orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
 
-    try {
-      const response = await fetch(`${API_URL}?_limit=3`, { cache: 'no-store' });
-      if (response.ok) {
-        const dataApi = await response.json();
-        tareasNubeGenericas = dataApi.map((item: any, index: number) => ({
-          id: Date.now() + index, 
-          titulo: item.title || item.titulo,
-          descripcion: 'Tarea de ejemplo API',
-        }));
-      }
-    } catch (error) {
-      console.warn('Offline mode');
-    }
+  return snapshot.docs.map((d) => {
+    const data = d.data() as DocumentData;
 
-    try {
-      const { value } = await Preferences.get({ key: USER_DB_KEY });
-      const tareasSubidasReales = value ? JSON.parse(value) : [];
-      
-      return [...tareasSubidasReales, ...tareasNubeGenericas];
-    } catch (error) {
-      return [];
-    }
-  },
+    return {
+      id: d.id,
+      title: String(data.title ?? ""),
+      done: Boolean(data.done ?? false),
+    };
+  });
+};
 
-  syncTarea: async (tarea: ApiTarea, username: string) => {
-    const USER_DB_KEY = `server_db_${username}`;
+export const addTask = async (uid: string, title: string): Promise<void> => {
+  const tasksRef = collection(db, "users", uid, "tasks");
+  await addDoc(tasksRef, {
+    title,
+    done: false,
+    createdAt: serverTimestamp(),
+  });
+};
 
-    try {
-      const tareaParaNube = {
-        titulo: tarea.titulo,
-        descripcion: tarea.descripcion,
-        imagenUrl: tarea.imagenUrl || '',
-        ubicacion: tarea.ubicacion || null
-      };
+export const deleteTask = async (uid: string, taskId: string): Promise<void> => {
+  const taskRef = doc(db, "users", uid, "tasks", taskId);
+  await deleteDoc(taskRef);
+};
 
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tareaParaNube),
-        cache: 'no-store'
-      });
-    } catch (error) {
-      console.warn('Offline mode sync');
-    }
-
-    try {
-      const { value } = await Preferences.get({ key: USER_DB_KEY });
-      const currentRemoteTasks = value ? JSON.parse(value) : [];
-      
-      const exists = currentRemoteTasks.some((t: any) => t.titulo === tarea.titulo && t.descripcion === tarea.descripcion);
-      
-      if (!exists) {
-        currentRemoteTasks.push({ ...tarea, id: Date.now() }); 
-        
-        await Preferences.set({
-          key: USER_DB_KEY,
-          value: JSON.stringify(currentRemoteTasks)
-        });
-      }
-
-      return { success: true };
-    } catch (error) {
-      throw error;
-    }
-  }
+export const toggleTaskDone = async (
+  uid: string,
+  taskId: string,
+  done: boolean
+): Promise<void> => {
+  const taskRef = doc(db, "users", uid, "tasks", taskId);
+  await updateDoc(taskRef, { done });
 };

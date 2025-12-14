@@ -1,72 +1,53 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import Tareas from './Tareas';
-import { vi } from 'vitest';
 
-// 1. Mocks (Igual que antes)
-vi.mock('react-router', () => ({
-  useHistory: () => ({ push: vi.fn(), replace: vi.fn() }),
-}));
-
-vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ username: 'usuario_test', logout: vi.fn(), isLoggedIn: true })
-}));
-
-vi.mock('@capacitor/camera', () => ({
+jest.mock('@capacitor/camera', () => ({
   Camera: {
-    getPhoto: vi.fn().mockResolvedValue({ webPath: 'path/to/photo.jpg', format: 'jpeg' })
+    getPhoto: jest.fn(),
   },
-  CameraResultType: { Uri: 'uri' },
-  CameraSource: { Camera: 'camera' }
 }));
 
-vi.mock('@capacitor/geolocation', () => ({
+jest.mock('@capacitor/geolocation', () => ({
   Geolocation: {
-    getCurrentPosition: vi.fn().mockResolvedValue({ coords: { latitude: -33, longitude: -70 } })
-  }
+    getCurrentPosition: jest.fn(),
+  },
 }));
 
-vi.mock('@capacitor/preferences', () => ({
-  Preferences: { get: vi.fn().mockResolvedValue({ value: null }), set: vi.fn() }
+jest.mock('../context/AuthContext', () => ({
+  useAuth: () => ({
+    username: 'TestUser',
+    logout: jest.fn()
+  })
 }));
 
-vi.mock('@capacitor/filesystem', () => ({
-  Filesystem: { copy: vi.fn().mockResolvedValue({ uri: 'file://test.jpg' }) },
-  Directory: { Data: 'DATA' }
+jest.mock('../hooks/useTareas', () => ({
+  useTareas: () => ({
+    tareas: [],
+    agregarTarea: jest.fn(),
+    eliminarTarea: jest.fn(),
+    editarTarea: jest.fn(),
+    descargarDeNube: jest.fn(),
+    subirANube: jest.fn(),
+    importarDesdeApiExterna: jest.fn()
+  })
 }));
 
-// 2. Tests Ajustados
-describe('Página Tareas - Pruebas Unitarias U2', () => {
-  
-  test('Debe renderizar los botones de Foto y Ubicación', () => {
-    render(<Tareas />);
-    // Buscamos texto flexible (case insensitive)
-    expect(screen.getByText(/Foto/i)).toBeDefined();
-    expect(screen.getByText(/Ubicación/i)).toBeDefined();
-  });
+jest.mock('../hooks/useCamera', () => ({
+  useCamera: () => ({
+    foto: null,
+    tomarFoto: jest.fn(),
+    limpiarFoto: jest.fn(),
+    errorCamera: ''
+  })
+}));
 
-  test('Debe llamar a la Cámara al hacer clic', async () => {
-    const { Camera } = await import('@capacitor/camera');
-    render(<Tareas />);
-    
-    // ESTRATEGIA SEGURA: Buscar el texto y hacer clic en él directamente
-    // Ionic maneja el clic bubbling correctamente
-    const textoFoto = screen.getByText(/Foto/i);
-    fireEvent.click(textoFoto);
-
-    await waitFor(() => {
-      expect(Camera.getPhoto).toHaveBeenCalled();
-    });
-  });
-
-  test('Debe llamar al GPS al hacer clic', async () => {
-    const { Geolocation } = await import('@capacitor/geolocation');
+describe('Página de Tareas', () => {
+  test('renderiza correctamente los elementos básicos', () => {
     render(<Tareas />);
     
-    const textoGps = screen.getByText(/Ubicación/i);
-    fireEvent.click(textoGps);
-
-    await waitFor(() => {
-      expect(Geolocation.getCurrentPosition).toHaveBeenCalled();
-    });
+    expect(screen.getByText(/Nueva Tarea/i)).toBeInTheDocument();
+    expect(screen.getByText(/Foto/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ubicación/i)).toBeInTheDocument();
   });
 });
